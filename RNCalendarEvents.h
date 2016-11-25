@@ -1,5 +1,5 @@
 #import "RCTBridgeModule.h"
 #import "RCTEventDispatcher.h"
 
-@interface RNCalendarEvents : NSObject <RCTBridgeModule>
+@interface RNCalendarEvents : NSObject <RCTBridgeModule, EKEventEditViewDelegate>
 @end
