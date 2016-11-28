@@ -2,7 +2,6 @@
 #import "RCTConvert.h"
 #import "RCTUtils.h"
 #import <EventKit/EventKit.h>
-#import <EventKitUI/EventKitUI.h>
 
 @interface RNCalendarEvents ()
 @property (nonatomic, strong) EKEventStore *eventStore;
@@ -72,15 +71,7 @@ RCT_EXPORT_MODULE()
     }
 }
 
-#pragma mark -
-#pragma mark Event Store Accessors
-
-- (NSDictionary *)buildAndSaveEvent:(NSDictionary *)details
-{
-    if ([[self authorizationStatusForEventStore] isEqualToString:@"granted"]) {
-        return @{@"success": [NSNull null], @"error": @"unauthorized to access calendar"};
-    }
-    
+- (EKEvent *)createEventFromDict:(NSDictionary *)details {
     EKEvent *calendarEvent = nil;
     NSString *eventId = [RCTConvert NSString:details[_id]];
     NSString *title = [RCTConvert NSString:details[_title]];
@@ -92,7 +83,6 @@ RCT_EXPORT_MODULE()
     NSString *url = [RCTConvert NSString:details[_url]];
     NSArray *alarms = [RCTConvert NSArray:details[_alarms]];
     NSString *recurrence = [RCTConvert NSString:details[_recurrence]];
-    NSNumber *showModalNum = [RCTConvert NSNumber:details[_showModal]];
     
     if (eventId) {
         calendarEvent = (EKEvent *)[self.eventStore calendarItemWithIdentifier:eventId];
@@ -141,12 +131,21 @@ RCT_EXPORT_MODULE()
     if (URL) {
         calendarEvent.URL = URL;
     }
+    return calendarEvent;
+}
+
+#pragma mark -
+#pragma mark Event Store Accessors
+
+- (NSDictionary *)buildAndSaveEvent:(NSDictionary *)details
+{
+    if ([[self authorizationStatusForEventStore] isEqualToString:@"granted"]) {
+        return @{@"success": [NSNull null], @"error": @"unauthorized to access calendar"};
+    }
+    
+    EKEvent *calendarEvent = [self createEventFromDict:details];
     
     id resp = [self saveEvent:calendarEvent];
-    
-    if (showModalNum && [showModalNum boolValue]) {
-        [self performSelectorOnMainThread:@selector(showModal:) withObject:calendarEvent waitUntilDone:NO];
-    }
     
     return resp;
 }
@@ -517,6 +516,16 @@ RCT_EXPORT_METHOD(saveEvent:(NSString *)title details:(NSDictionary *)details re
     } else {
         reject(@"error", [response valueForKey:@"error"], nil);
     }
+}
+
+RCT_EXPORT_METHOD(showCalendarModal:(NSString *)title details:(NSDictionary *)details)
+{
+    NSMutableDictionary *options = [NSMutableDictionary dictionaryWithDictionary:details];
+    [options setValue:title forKey:_title];
+    
+    EKEvent* calendarEvent = [self createEventFromDict:options];
+    [self saveEvent:calendarEvent];
+    [self performSelectorOnMainThread:@selector(showModal:) withObject:calendarEvent waitUntilDone:NO];
 }
 
 RCT_EXPORT_METHOD(removeEvent:(NSString *)eventId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
