@@ -16,6 +16,10 @@ export default {
     return CalendarEvents.saveEvent(title, details)
   },
 
+  async showCalendarModal(title, details) {
+    retutn CalendarEvents.sendIntentForCalendarEvent(title, details)
+  },
+
   async uriForCalendar () {
     return CalendarEvents.uriForCalendar()
   },

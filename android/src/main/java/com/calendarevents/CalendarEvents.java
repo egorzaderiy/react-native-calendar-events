@@ -26,12 +26,21 @@ import com.facebook.react.bridge.WritableMap;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.TimeZone;
 
 public class CalendarEvents extends ReactContextBaseJavaModule {
 
     public static int PERMISSION_REQUEST_CODE = 37;
+    public static String DETAILS_KEY_NOTES = "notes";
+    public static String DETAILS_KEY_LOCATION = "location";
+    public static String DETAILS_KEY_START_DATE = "startDate";
+    public static String DETAILS_KEY_END_DATE = "endDate";
+    public static String DETAILS_KEY_ALL_DAY = "allDay";
+
     private ReactContext reactContext;
     private static HashMap<Integer, Promise> permissionsPromises = new HashMap<>();
 
@@ -87,12 +96,28 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
     }
     //endregion
 
-    //region Event Accessors
-    public WritableMap addEvent(String title, ReadableMap details) throws ParseException {
+    private Date parseISODateString(String dateString) throws ParseException {
         String dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
         SimpleDateFormat sdf = new SimpleDateFormat(dateFormat);
         sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
 
+        return sdf.parse(dateString);
+    }
+
+    private long dateStringToTimestamp(String dateString) throws ParseException {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        try {
+            cal.setTime(parseISODateString(dateString));
+        } catch (ParseException e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        return cal.getTimeInMillis();
+    }
+
+    //region Event Accessors
+    public WritableMap addEvent(String title, ReadableMap details) throws ParseException {
         ContentResolver cr = reactContext.getContentResolver();
         ContentValues eventValues = new ContentValues();
 
@@ -102,33 +127,19 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
         if (title != null) {
             eventValues.put(CalendarContract.Events.TITLE, title);
         }
-        if (details.hasKey("notes")) {
-            eventValues.put(CalendarContract.Events.DESCRIPTION, details.getString("notes"));
+        if (details.hasKey(DETAILS_KEY_NOTES)) {
+            eventValues.put(CalendarContract.Events.DESCRIPTION, details.getString(DETAILS_KEY_NOTES));
         }
-        if (details.hasKey("location")) {
-            eventValues.put(CalendarContract.Events.EVENT_LOCATION, details.getString("location"));
-        }
-
-        if (details.hasKey("startDate")) {
-            java.util.Calendar startCal = java.util.Calendar.getInstance();
-            try {
-                startCal.setTime(sdf.parse(details.getString("startDate")));
-            } catch (ParseException e) {
-                e.printStackTrace();
-                throw e;
-            }
-            eventValues.put(CalendarContract.Events.DTSTART, startCal.getTimeInMillis());
+        if (details.hasKey(DETAILS_KEY_LOCATION)) {
+            eventValues.put(CalendarContract.Events.EVENT_LOCATION, details.getString(DETAILS_KEY_LOCATION));
         }
 
-        if (details.hasKey("endDate")) {
-            java.util.Calendar endCal = java.util.Calendar.getInstance();
-            try {
-                endCal.setTime(sdf.parse(details.getString("endDate")));
-            } catch (ParseException e) {
-                e.printStackTrace();
-                throw e;
-            }
-            eventValues.put(CalendarContract.Events.DTEND, endCal.getTimeInMillis());
+        if (details.hasKey(DETAILS_KEY_START_DATE)) {
+            eventValues.put(CalendarContract.Events.DTSTART, dateStringToTimestamp(details.getString(DETAILS_KEY_START_DATE)));
+        }
+
+        if (details.hasKey(DETAILS_KEY_END_DATE)) {
+            eventValues.put(CalendarContract.Events.DTEND, dateStringToTimestamp(details.getString(DETAILS_KEY_END_DATE)));
         }
 
         if (details.hasKey("recurrence")) {
@@ -137,8 +148,8 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
                 eventValues.put(CalendarContract.Events.RRULE, rule);
             }
         }
-        if (details.hasKey("allDay")) {
-            eventValues.put(CalendarContract.Events.ALL_DAY, details.getBoolean("allDay"));
+        if (details.hasKey(DETAILS_KEY_ALL_DAY)) {
+            eventValues.put(CalendarContract.Events.ALL_DAY, details.getBoolean(DETAILS_KEY_ALL_DAY));
         }
         eventValues.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
         if (details.hasKey("alarms")) {
@@ -223,6 +234,40 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void sendIntentForCalendarEvent(String title, ReadableMap details) {
+        Calendar cal = new GregorianCalendar();
+        cal.setTime(new Date());
+        Intent intent = new Intent(Intent.ACTION_INSERT);
+        intent.setData(CalendarContract.Events.CONTENT_URI);
+        intent.putExtra(CalendarContract.Events.TITLE, title);
+        if (details.hasKey(DETAILS_KEY_NOTES)) {
+            intent.putExtra(CalendarContract.Events.DESCRIPTION, details.getString(DETAILS_KEY_NOTES));
+        }
+        if (details.hasKey(DETAILS_KEY_LOCATION)) {
+            intent.putExtra(CalendarContract.Events.EVENT_LOCATION, details.getString(DETAILS_KEY_LOCATION));
+        }
+        if (details.hasKey(DETAILS_KEY_ALL_DAY)) {
+            intent.putExtra(CalendarContract.Events.ALL_DAY, details.getString(DETAILS_KEY_ALL_DAY));
+        }
+
+        try {
+            if (details.hasKey(DETAILS_KEY_START_DATE)) {
+                intent.putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME,
+                        dateStringToTimestamp(details.getString(DETAILS_KEY_START_DATE)));
+            }
+            if (details.hasKey(DETAILS_KEY_END_DATE)) {
+                intent.putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
+                        dateStringToTimestamp(details.getString(DETAILS_KEY_END_DATE)));
+            }
+        } catch (Exception e) {
+            // TODO: add error handling here
+            return;
+        }
+
+        getReactApplicationContext().startActivity(intent);
+    }
+
+    @ReactMethod
     public void openEventInCalendar(int eventID) {
         Uri uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventID);
         Intent sendIntent = new Intent(Intent.ACTION_VIEW).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).setData(uri);
@@ -238,4 +283,3 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
     }
     //endregion
 }
-
