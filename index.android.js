@@ -17,7 +17,7 @@ export default {
   },
 
   async showCalendarModal(title, details) {
-    retutn CalendarEvents.sendIntentForCalendarEvent(title, details)
+    return CalendarEvents.sendIntentForCalendarEvent(title, details)
   },
 
   async uriForCalendar () {
