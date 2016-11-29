@@ -7,6 +7,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.Manifest;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.provider.CalendarContract;
 import android.support.v4.app.ActivityCompat;
@@ -30,6 +31,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.TimeZone;
 
 public class CalendarEvents extends ReactContextBaseJavaModule {
@@ -264,7 +266,30 @@ public class CalendarEvents extends ReactContextBaseJavaModule {
             return;
         }
 
-        getReactApplicationContext().startActivity(intent);
+        PackageManager manager = reactContext.getPackageManager();
+        List<ResolveInfo> list = manager.queryIntentActivities(intent, 0);
+
+        if (list == null || list.size() == 0) {
+            return;
+        }
+
+        if (list.size() == 1) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                reactContext.startActivity(intent);
+            } catch (Exception ex) {
+                // TODO: add error handling here
+            }
+        } else {
+            Intent chooser = Intent.createChooser(intent, "Add Event");
+            chooser.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            try {
+                reactContext.startActivity(chooser);
+            } catch (Exception ex) {
+                // TODO: add error handling here
+            }
+        }
     }
 
     @ReactMethod
