@@ -1,7 +1,6 @@
 #import "RNCalendarEvents.h"
 #import "RCTConvert.h"
 #import "RCTUtils.h"
-#import <EventKit/EventKit.h>
 
 @interface RNCalendarEvents ()
 @property (nonatomic, strong) EKEventStore *eventStore;
